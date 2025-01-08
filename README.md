@@ -1,5 +1,6 @@
-<<<<<<< HEAD
-# PyPI_IID
+# PyPI: IID42
+
+PyPi: https://pypi.org/project/iid42/2025.1.8.1/
 
 **IID**, short for **Index Integer Date**, is a 4/8/12/16-byte format designed for seamless communication across various network systems, including UDP, WebSocket, and Mirror.
 
@@ -84,11 +85,14 @@ This is my first Python package. Here’s how to build one.
 ### Example Workflow:
 
 ```bash
+python -m build
 pip uninstall iid -y
 python -m build
-pip install dist/iid-2025.1.8-py3-none-any.whl
+pip install dist/iid42-2025.1.8-py3-none-any.whl
 python
 ```
+
+
 
 ### Example Usage:
 
@@ -98,17 +102,8 @@ iid.say_hello()
 ```
 
 
-=======
-IID & 🍺.io: https://buymeacoffee.com/apintio - https://github.com/EloiStree/IID - https://github.com/EloiStree/apint.io
-
---------------------------------------
 
 
-# pypi_iid
-Utility for Index Integer Date format used by my tool in Python.
-
-IID & 🍺.io:
-- https://buymeacoffee.com/apintio
-- https://github.com/EloiStree/IID
-- https://github.com/EloiStree/apint.io
->>>>>>> 2f8b8d1a3b71d35d2d14ad29507adc6674c803c2
+```
+pip install --upgrade twine
+python -m twine upload dist/*
