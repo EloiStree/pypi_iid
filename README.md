@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # PyPI_IID
 
 **IID**, short for **Index Integer Date**, is a 4/8/12/16-byte format designed for seamless communication across various network systems, including UDP, WebSocket, and Mirror.
@@ -97,3 +98,17 @@ iid.say_hello()
 ```
 
 
+=======
+IID & 🍺.io: https://buymeacoffee.com/apintio - https://github.com/EloiStree/IID - https://github.com/EloiStree/apint.io
+
+--------------------------------------
+
+
+# pypi_iid
+Utility for Index Integer Date format used by my tool in Python.
+
+IID & 🍺.io:
+- https://buymeacoffee.com/apintio
+- https://github.com/EloiStree/IID
+- https://github.com/EloiStree/apint.io
+>>>>>>> 2f8b8d1a3b71d35d2d14ad29507adc6674c803c2
