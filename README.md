@@ -1,6 +1,6 @@
 # PyPI: IID42
 
-PyPi: https://pypi.org/project/iid42/2025.1.8.1/
+PyPi: https://pypi.org/project/iid42
 
 **IID**, short for **Index Integer Date**, is a 4/8/12/16-byte format designed for seamless communication across various network systems, including UDP, WebSocket, and Mirror.
 
@@ -107,3 +107,8 @@ iid.say_hello()
 ```
 pip install --upgrade twine
 python -m twine upload dist/*
+
+```
+
+Use https://test.pypi.org for training.  
+https://youtu.be/9Ii34WheBOA?t=699  
