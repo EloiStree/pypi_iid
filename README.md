@@ -3,19 +3,14 @@
 PyPi: https://pypi.org/project/iid42
 
 Sample:
-```
+``` py
 # pip install iid42
 import iid
 
 # Send IID to a UDP Gate Relay
-target = SendUdpIID("127.0.0.1",3615)
+target = SendUdpIID("127.0.0.1",3615,True)
 target.push_integer(42)
 target.push_index_integer(2,42)
-target.push_index_integer_date_local_now(0,42)
-target.set_ntp_offset_tick(45453)
-target.push_index_integer_date_ntp_now(0,42)
-target.push_index_integer_date_ntp_in_seconds(0,42,1.25)
-target.push_index_integer_date_ntp_in_milliseconds(0,42,250)
 
 ```
 
