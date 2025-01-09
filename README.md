@@ -46,69 +46,48 @@ Since 2024, all my tools have been built around this principle.
  */
 ```
 
---------------------
 
 
---------------------
+``` py
+import os
+import sys
+
+if False:
+    cmd = "pip install iid42 --force-reinstall"
+    os.system(cmd)
+
+import iid42
+from iid42 import HelloWorldIID
 
 
-## Creating a Python Package
-
-Tutorial:
-- https://youtu.be/9Ii34WheBOA?t=457
-
-
-This is my first Python package. Here’s how to build one.
-
-### Steps to Create a Pip Package:
-
-1. Install or upgrade the build tool:  
-   ```bash
-   pip install --upgrade build
-   ```
-
-2. Navigate to your project’s root directory:  
-   ```bash
-   cd "GIT_PROJECT_ROOT"
-   ```
-
-3. Build the package:  
-   ```bash
-   python -m build
-   ```
-
-4. A `.whl` file will be created. You can install it using pip:  
-   ```bash
-   pip install iid-2025.1.8-py3-none-any.whl
-   ```
-
-### Example Workflow:
-
-```bash
-python -m build
-pip uninstall iid -y
-python -m build
-pip install dist/iid42-2025.1.8-py3-none-any.whl
-python
-```
-
-
-
-### Example Usage:
-
-```python
-import iid
-iid.say_hello()
-```
-
-
-
-
-```
-pip install --upgrade twine
-python -m twine upload dist/*
+HelloWorldIID.console_loop_to_push_iid_apintio()
 
 ```
 
-Use https://test.pypi.org for training.  
-https://youtu.be/9Ii34WheBOA?t=699  
+
+
+``` py
+import os
+import sys
+
+if False:
+    cmd = "pip install iid42 --force-reinstall"
+    os.system(cmd)
+
+import iid42
+from iid42 import SendUdpIID
+import time
+
+target = SendUdpIID("apint.ddns.net", 3615, use_ntp= True)
+while True:
+        # Request to press a key in 50 ms from now on ntp time
+        target.push_bytes(iid42.iid_ms(0,1001,50))
+        # Request to release it a key in 550 ms from now on ntp time
+        target.push_bytes(iid42.iid_ms(0,2001,550))
+        # Every 2 seconds
+        time.sleep(2)
+        t = time.time()+1000
+        t_offset = t + target.ntp_offset_local_to_server_in_milliseconds
+        print(f"TIME:{t} NTP:{t_offset}")
+
+```
