@@ -2,6 +2,24 @@
 
 PyPi: https://pypi.org/project/iid42
 
+Sample:
+```
+# pip install iid42
+import iid
+
+# Send IID to a UDP Gate Relay
+target = SendUdpIID("127.0.0.1",3615)
+target.push_integer(42)
+target.push_index_integer(2,42)
+target.push_index_integer_date_local_now(0,42)
+target.set_ntp_offset_tick(45453)
+target.push_index_integer_date_ntp_now(0,42)
+target.push_index_integer_date_ntp_in_seconds(0,42,1.25)
+target.push_index_integer_date_ntp_in_milliseconds(0,42,250)
+
+```
+
+
 **IID**, short for **Index Integer Date**, is a 4/8/12/16-byte format designed for seamless communication across various network systems, including UDP, WebSocket, and Mirror.
 
 By standardizing the code and API to work exclusively with integer values:
@@ -91,3 +109,5 @@ while True:
         print(f"TIME:{t} NTP:{t_offset}")
 
 ```
+Use https://test.pypi.org for training.  
+https://youtu.be/9Ii34WheBOA?t=699  
