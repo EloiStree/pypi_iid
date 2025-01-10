@@ -7,7 +7,7 @@ packages = ["src/iid42"]
 
 [project]
 name = "iid42"
-version = "2025.01.08.010"
+version = "2025.01.10.0223"
 authors = [{ name = "Eloi Stree", email = "eloistree@gmail.com" }]
 description = "Help building app using Index Integer Date format IID"
 readme = "README.md"
@@ -28,3 +28,7 @@ dependencies = [
 [project.urls]
 Homepage = "https://github.com/EloiStree/pypi_iid"
 Issues = "https://github.com/EloiStree/pypi_iid"
+
+
+# python -m build
+# python -m twine upload dist/*

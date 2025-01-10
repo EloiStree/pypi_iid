@@ -1,5 +1,6 @@
 # https://buymeacoffee.com/apintio
 
+import re
 import struct
 import random
 import socket
@@ -110,6 +111,21 @@ def iid(index:int, integer_value:int, date:int):
 def iid_ms(index:int, integer_value:int, milliseconds:int):
     return index_integer_date_to_bytes(index, integer_value, milliseconds)
    
+   
+   
+def is_text_ivp4(server_name:str):
+    # check if the string is in 255.255.255.255 format
+    pattern = re.compile(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$")
+    return bool(pattern.match(server_name))
+
+def get_ipv4(server_name:str):
+    if is_text_ivp4(server_name):
+        return server_name
+    ivp4 = socket.gethostbyname(server_name)
+    return ivp4
+
+
+
 class NtpOffsetFetcher:
     
     def fetch_ntp_offset_in_milliseconds( ntp_server):
@@ -138,14 +154,25 @@ set_global_ntp_offset_in_milliseconds()
 ### SEND UDP IID
 class SendUdpIID:
     
-    def __init__(self, ivp4, port, use_ntp:bool):
-        self.ivp4 = ivp4
+    def __init__(self, ivp4, port, use_ntp:bool, use_queue_thread:bool=False):
+        
+        self.ivp4 = get_ipv4(ivp4)
         self.port = port
         self.ntp_offset_local_to_server_in_milliseconds=0
         
+        if use_queue_thread:
+            
+            self.callback =IntegerTimeQueueHolder.BytesActionDelegate(self.push_bytes)
+            self.queue_thread= IntegerTimeQueueHolder(self.callback, 1)
+            
+        
+        
         if use_ntp:
             self.fetch_ntp_offset()
+        
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        
+ 
         
     def get_ntp_offset(self):
         return self.ntp_offset_local_to_server_in_milliseconds
@@ -155,6 +182,8 @@ class SendUdpIID:
         if bytes:
             self.sock.sendto(bytes, (self.ivp4, self.port))
     def push_bytes(self, bytes:bytes):
+        
+        print (f"Push Bytes: {self.ivp4} {self.port} {bytes}")
         self.sock.sendto(bytes, (self.ivp4, self.port))
         
     def push_text(self, text:str):
@@ -201,6 +230,19 @@ class SendUdpIID:
    
     def push_index_integer_date_ntp_in_seconds(self, index:int, value:int, seconds:int):
         self.push_index_integer_date_ntp_in_milliseconds(index, value, seconds*1000)
+        
+        
+    def is_using_queue_thread(self):
+        return self.queue_thread is not None
+    
+    def push_integer_in_queue(self, value:int, delay_in_milliseconds:int):
+        self.queue_thread.push_bytes_to_queue(integer_to_bytes(value), delay_in_milliseconds)
+    def push_index_integer_in_queue(self, index:int, value:int, delay_in_milliseconds:int):
+        self.queue_thread.push_bytes_to_queue(index_integer_to_bytes(index, value), delay_in_milliseconds)
+    def clear_queue(self):
+        self.queue_thread.clear_queue()
+    
+    
 
 
 
@@ -208,7 +250,7 @@ class SendUdpIID:
 ### RECEIVE UDP IID
 class ListenUdpIID:
     def __init__(self, ivp4, port):
-        self.ivp4 = ivp4
+        self.ivp4 = get_ipv4(ivp4)
         self.port = port
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.bind((self.ivp4, self.port))
@@ -257,7 +299,7 @@ class ListenUdpIID:
 class NoAuthWebsocketIID:
     
     def __init__(self, ivp4, port):
-        self.ivp4 = ivp4
+        self.ivp4 = get_ipv4(ivp4)
         self.port = port
         self.uri = f"ws://{self.ivp4}:{self.port}"
         self.on_receive_integer = None
@@ -294,9 +336,9 @@ class NoAuthWebsocketIID:
  # ## Websocket IID
 ### RECEIVE WEBSOCKET ECHO IID
 # NOT TESTED YET
-class NoAuthWebSocketEchoIID:
+class NoAuthServerWebSocketEchoIID:
     def __init__(self, ivp4:str, port:int, bool_print_debug:bool):
-        self.ivp4 = ivp4
+        self.ivp4 = get_ipv4(ivp4)
         self.port = port
         self.bool_print_debug = bool_print_debug
         self.uri = f"ws://{self.ivp4}:{str(self.port)}"
@@ -380,10 +422,225 @@ class HelloWorldIID:
         # See no-ip.com for creating a ddns name for your own IP address
     
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+class IntegerTimeQueueHolder:
+    """
+    This class holds a queue of integer actions represented as shortcut strings.
+    The queue can be flushed if needed.
+    Some code does not handle the datetime of the IID, so it is up to the client to manage it.
+    Using NTP Date on the target is ideal due to its 1-5ms precision.
+    Local date has transport latency but ensures the code is implemented and manageable in case of exceptions or errors.
+    """
+    
+    def get_time_in_milliseconds():
+        return time.time_ns() // 1_000_000
+    
+    class WaitingShortcut:
+        def __init__(self, hold_bytes:bytes, time_in_milliseconds:int, delay_in_milliseconds:int ):
+            self.hold_integer:bytes = hold_bytes
+            self.local_time_created:int = time_in_milliseconds
+            self.local_time_to_execute:int = time_in_milliseconds + delay_in_milliseconds
+            
+            
+        
+        def is_ready(self, current_time:int):
+            return current_time >= self.local_time_to_execute
+    
+        def get_hold_bytes(self): 
+            return self.hold_integer
+
+
+    class QueueOfShortcuts:
+        def __init__(self):
+            self.list = list()
+            
+        def append_at_0(self, hold_bytes:bytes):
+            self.list.insert(0, hold_bytes)
+        
+        def has_waiting_bytes(self):
+            return len(self.list)>0
+        
+        def check_for_bytes_to_extract(self, current_time:int):
+            list_result = list()
+            int_index= len(self.list)-1
+            while int_index>=0:
+                shortcut = self.list[int_index]
+                if shortcut.is_ready(current_time):
+                    list_result.append(shortcut)
+                    self.list.pop(int_index)
+                int_index-=1
+                
+            return list_result
+
+        def clear (self):
+            self.list.clear()
+
+    class BytesActionDelegate:
+        def __init__(self, byte_handler):
+            self.byte_handler = byte_handler
+        def out_of_queue(self, bytes_to_push:bytes):
+            print ("Bytes Out Of Queue: ", bytes_to_push)
+            self.byte_handler(bytes_to_push)
+            
+    def __init__(self, handle_action:BytesActionDelegate, check_time_in_milliseconds:int):
+        self.in_queue_bytes = IntegerTimeQueueHolder.QueueOfShortcuts()
+        self.current_time:int = IntegerTimeQueueHolder.get_time_in_milliseconds()
+        self.handle_action:IntegerTimeQueueHolder.BytesActionDelegate = handle_action
+        self.start_loop_in_thread(check_time_in_milliseconds)
+    
+
+    def push_bytes_to_queue_at_localTime(self,hold_bytes:bytes, time_in_milliseconds:int, delay_in_milliseconds:int):
+        self.in_queue_bytes.append_at_0(self.WaitingShortcut(hold_bytes, time_in_milliseconds, delay_in_milliseconds))
+        print ("Pushed Bytes To Queue: ", hold_bytes, len(self.in_queue_bytes.list))
+    def push_bytes_to_queue(self,hold_bytes:bytes, delay_in_milliseconds:int):
+        self.push_bytes_to_queue_at_localTime(hold_bytes, IntegerTimeQueueHolder.get_time_in_milliseconds(), delay_in_milliseconds)
+        
+
+
+   
+
+    def start_loop_in_thread(self, time_in_waiting_milliseconds:int):
+        print ("Start Loop In Thread")
+        t = threading.Thread(target=self.loop_for_thread_with_time, args=(time_in_waiting_milliseconds,))
+        #t.daemon = True
+        t.start()
+        print ("Thread Started")
+        
+ 
+
+    def loop_for_thread_with_time(self, time_in_waiting_milliseconds:int):
+        print ("Loop For Thread With Time")
+        waiting_time_seconds = time_in_waiting_milliseconds/1000.0
+        while True:
+            self.check_the_queue_for_shortcuts()
+            time.sleep(waiting_time_seconds)
+        print ("Loop For Thread With Time End")
+ 
+
+    def clear_queue(self):
+        self.in_queue_bytes.clear()
+        
+    
+
+
+    def check_the_queue_for_shortcuts(self):
+        """
+        Have to be called byt the timer of the user.
+        We can't know if async, thread , time or else will be used.
+        """
+
+        
+        if not self.in_queue_bytes.has_waiting_bytes():
+            return
+        
+        self.current_time = IntegerTimeQueueHolder.get_time_in_milliseconds()
+        for s in self.in_queue_bytes.check_for_bytes_to_extract(self.current_time):
+
+            bytes_store:bytes = s.get_hold_bytes()
+            print ("Extracted Bytes From Queue: ", bytes_store, len(self.in_queue_bytes.list))
+            self.handle_action.out_of_queue(bytes_store)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     
         
 if __name__ == "__main__":
-    
-    HelloWorldIID.push_my_first_iid()
-    HelloWorldIID.console_loop_to_push_iid_apintio()
+
+    bool_console_test = False
+    if bool_console_test : 
+        print("Console Test")      
+        HelloWorldIID.push_my_first_iid()
+        HelloWorldIID.console_loop_to_push_iid_apintio()
+        
+    bool_queue_test = True
+    if bool_queue_test:
+        print("Queue Test")
+        target = SendUdpIID("apint.ddns.net",3615,True,True)
+        print("IVP4", target.ivp4)
+        target.push_index_integer_in_queue(1,1082,0)
+        target.push_index_integer_in_queue(1,2082,1000)
+        target.push_index_integer_in_queue(1,1037,2000)
+        target.push_index_integer_in_queue(1,2037,4000)
+        target.push_index_integer_in_queue(1,1038,5000)
+        target.push_index_integer_in_queue(1,2038,6000)
+        target.push_index_integer_in_queue(1,1039,7000)
+        target.push_index_integer_in_queue(1,2039,8000)
+        
+        target.push_integer_in_queue(2082,11000)
+        target.push_integer_in_queue(1037,12000)
+        target.push_integer_in_queue(2037,14000)
+        target.push_integer_in_queue(1038,15000)
+        target.push_integer_in_queue(2038,16000)
+        target.push_integer_in_queue(1039,17000)
+        target.push_integer_in_queue(2039,18000)
+        
     
