@@ -41,6 +41,10 @@ class IIDUtility:
     def bytes_to_index_integer(bytes:bytes):
         index, value = struct.unpack('<ii', bytes)
         return index, value
+    
+    def bytes_to_index_date(bytes:bytes):
+        index, date = struct.unpack('<iQ', bytes)
+        return index, date
 
     def  bytes_to_index_integer_date(bytes:bytes):
         index, value, date = struct.unpack('<iiQ', bytes)
@@ -128,7 +132,9 @@ class IIDUtility:
 
 
 
-class NtpOffsetFetcher:
+class NtpOffsetFetcher: 
+       
+    default_global_ntp_offset_in_milliseconds = 0
     
     def fetch_ntp_offset_in_milliseconds( ntp_server):
         try:
@@ -140,17 +146,20 @@ class NtpOffsetFetcher:
             return 0
 
 
-def set_global_ntp_offset_in_milliseconds(ntp_server=IIDUtility.default_ntp_server):
+    def set_global_ntp_offset_in_milliseconds(ntp_server=IIDUtility.default_ntp_server):
 
-    try:
-        offset=  NtpOffsetFetcher.fetch_ntp_offset_in_milliseconds(ntp_server)
-        global default_global_ntp_offset_in_milliseconds
-        default_global_ntp_offset_in_milliseconds = offset
-        print (f"Default Global NTP Offset: {default_global_ntp_offset_in_milliseconds} {ntp_server}" )
-    except Exception as e:
-        pass
-        default_global_ntp_offset_in_milliseconds = 0
-set_global_ntp_offset_in_milliseconds()
+        try:
+            offset=  NtpOffsetFetcher.fetch_ntp_offset_in_milliseconds(ntp_server)
+            global default_global_ntp_offset_in_milliseconds
+            default_global_ntp_offset_in_milliseconds = offset
+            print (f"Default Global NTP Offset: {default_global_ntp_offset_in_milliseconds} {ntp_server}" )
+        except Exception as e:
+            pass
+            default_global_ntp_offset_in_milliseconds = 0
+    def get_global_ntp_offset_in_milliseconds():
+        return int(default_global_ntp_offset_in_milliseconds)
+            
+NtpOffsetFetcher.set_global_ntp_offset_in_milliseconds()
     
 
 ## UDP IID
@@ -259,7 +268,7 @@ class SendUdpIID:
 ## UDP IID
 ### RECEIVE UDP IID
 class ListenUdpIID:
-    def __init__(self, ivp4, port):
+    def __init__(self, ivp4, port, ntp_offset_in_milliseconds:int=0, integer_to_sync_ntp:int=1259):
         self.ivp4 = IIDUtility.get_ipv4(ivp4)
         self.port = port
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -267,10 +276,72 @@ class ListenUdpIID:
         self.on_receive_integer = None
         self.on_receive_index_integer = None
         self.on_receive_index_integer_date = None
+        self.on_received_integer_date = None
+        self.ntp_offset_in_milliseconds = ntp_offset_in_milliseconds
+        self.manual_adjustement_source_to_local_ntp_offset_in_milliseconds = 0
+        
+        ## Sync NTP is around 10-50 ms precision
+        ## If you use a integer with ntp on the client and to set listener.
+        ## You can adjust the offset to 1-2 ms precision
+        self.integer_to_sync_ntp=integer_to_sync_ntp
+
+        # DEFAULT DEBUG
+        self.on_receive_index_integer_date = self.debug_received_index_integer_date
+        self.on_receive_integer = self.debug_received_integer
+        self.on_receive_index_integer = self.debug_received_index_integer
+        self.on_received_integer_date = self.debug_received_integer_date
+        
+                
+        
         # Start thread
         self.thread = threading.Thread(target=self.listen)
         self.thread.daemon = True
         self.thread.start()
+        
+        
+    def debug_received_integer(self, value:int):
+        print(f"Received Integer: {value} ")
+        
+    def debug_received_index_integer(self, index:int, value:int):
+        print(f"Received Index Integer: {index} {value}")
+
+    def debug_received_integer_date(self, value:int, date:int):
+        time = self.get_ntp_time_in_milliseconds_with_manual_adustement()
+        print(f"Received Integer Date: {value} {date} vs {time} dif {time -date} ")
+
+    def debug_received_index_integer_date(self, index:int, value:int, date:int):
+        time = self.get_ntp_time_in_milliseconds_with_manual_adustement()
+        print(f"Received Index Integer Date: {index} {value} {date} vs {time} dif {time-date} ")
+
+        
+    def get_ntp_time_in_milliseconds(self):
+        return int(time.time()*1000) + self.ntp_offset_in_milliseconds 
+    
+    def get_ntp_time_in_milliseconds_with_manual_adustement(self):
+        return int(time.time()*1000) + self.ntp_offset_in_milliseconds  - self.manual_adjustement_source_to_local_ntp_offset_in_milliseconds
+    
+    def notify_integer(self, value:int):
+        if self.on_receive_integer:
+            self.on_receive_integer(value)
+    def notify_index_integer(self, index:int, value:int):
+        if self.on_receive_index_integer:
+            self.on_receive_index_integer(index, value)
+    def notify_index_integer_date(self, index:int, value:int, date:int):
+        if self.on_receive_index_integer_date:
+            self.on_receive_index_integer_date(index, value, date)
+    def notify_integer_date(self, value:int, date:int):
+        if self.on_received_integer_date:
+            self.on_received_integer_date(value, date)
+            
+    def is_integer_sync_ntp_request(self, value:int):
+        if self.integer_to_sync_ntp == 0:
+            return False
+        return value == self.integer_to_sync_ntp
+    
+    def request_to_sync_ntp(self, milliseconds_source, milliseconds_local):
+        int_diff_source_to_local = (milliseconds_local- milliseconds_source)
+        self.manual_adjustement_source_to_local_ntp_offset_in_milliseconds = int_diff_source_to_local
+        
         
     def listen(self):
         while True:
@@ -281,20 +352,25 @@ class ListenUdpIID:
                 size = len(data)
                 if size == 4:
                     value = IIDUtility.bytes_to_int(data)
-                    if self.on_receive_integer:
-                        self.on_receive_integer(value)
+                    self.notify_integer(value)
+                    
                 elif size == 8:
                     index, value = IIDUtility.bytes_to_index_integer(data)
-                    if self.on_receive_index_integer:
-                        self.on_receive_index_integer(index, value)
+                    self.notify_index_integer(index, value)
+                    
                 elif size == 12:
-                    index, value, date = IIDUtility.bytes_to_index_integer_date(data)
-                    if self.on_receive_index_integer_date:
-                        self.on_receive_index_integer_date(index, value, date)
+                    value, date = IIDUtility.bytes_to_index_date(data)
+                    if self.is_integer_sync_ntp_request(value):
+                        self.request_to_sync_ntp(date, self.get_ntp_time_in_milliseconds())
+                    self.notify_integer_date(value, date)
+                    
                 elif size == 16:
+                    
                     index, value, date = IIDUtility.bytes_to_index_integer_date(data)
-                    if self.on_receive_index_integer_date:
-                        self.on_receive_index_integer_date(index, value, date)
+                    if self.is_integer_sync_ntp_request(value):
+                        self.request_to_sync_ntp(date, self.get_ntp_time_in_milliseconds())
+                    self.notify_index_integer_date(index, value, date)
+                    
             except Exception as e:
                 print("Error:", e)
                 self.sock.close()
@@ -627,13 +703,24 @@ class IntegerTimeQueueHolder:
         
 if __name__ == "__main__":
 
+    NtpOffsetFetcher.set_global_ntp_offset_in_milliseconds()
+    offset= NtpOffsetFetcher.get_global_ntp_offset_in_milliseconds()
+    print (f"Default Global NTP Offset: {offset}")
+
+    bool_loop_listener_test = True
+    if bool_loop_listener_test:
+        print("Loop Listener Test")
+        target = ListenUdpIID("0.0.0.0",3615, offset)
+      
+        
+
     bool_console_test = False
     if bool_console_test : 
         print("Console Test")      
         HelloWorldIID.push_my_first_iid()
         HelloWorldIID.console_loop_to_push_iid_apintio()
         
-    bool_queue_test = True
+    bool_queue_test = False
     if bool_queue_test:
         print("Queue Test")
         target = SendUdpIID("apint.ddns.net",3615,True,True)
@@ -656,3 +743,7 @@ if __name__ == "__main__":
         target.push_integer_in_queue(2039,18000)
         
     
+    while(True):
+        text = input("Enter IID Text: ")
+        if text == "exit":
+            break
