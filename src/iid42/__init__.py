@@ -13,116 +13,118 @@ import ntplib
 ####### IID ###
 
 
-default_ntp_server = "be.pool.ntp.org"
-default_global_ntp_offset_in_milliseconds = 0
+class IIDUtility:
+    default_ntp_server = "be.pool.ntp.org"
+    default_global_ntp_offset_in_milliseconds = 0
 
 
-def get_default_global_ntp_offset_in_milliseconds():
-    return default_global_ntp_offset_in_milliseconds
 
+    def is_text_ivp4(server_name:str):
+        # check if the string is in 255.255.255.255 format
+        pattern = re.compile(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$")
+        return bool(pattern.match(server_name))
+
+    def get_ipv4(server_name:str):
+        if IIDUtility.is_text_ivp4(server_name):
+            return server_name
+        ivp4 = socket.gethostbyname(server_name)
+        return ivp4
     
-def bytes_to_int(bytes:bytes):
-    value= struct.unpack('<i', bytes)[0]
-    return value
+    def get_default_global_ntp_offset_in_milliseconds():
+        return default_global_ntp_offset_in_milliseconds
 
-def bytes_to_index_integer(bytes:bytes):
-    index, value = struct.unpack('<ii', bytes)
-    return index, value
+        
+    def bytes_to_int(bytes:bytes):
+        value= struct.unpack('<i', bytes)[0]
+        return value
 
-def  bytes_to_index_integer_date(bytes:bytes):
-    index, value, date = struct.unpack('<iiQ', bytes)
-    return index, value, date
+    def bytes_to_index_integer(bytes:bytes):
+        index, value = struct.unpack('<ii', bytes)
+        return index, value
 
-
-
-def integer_to_bytes(value:int):
-    return struct.pack('<i', value)
-
-def index_integer_to_bytes(index:int, value:int):
-    return struct.pack('<ii', index, value)
-
-def index_integer_date_to_bytes(index:int, value:int, date:int):
-    return struct.pack('<iiQ', index, value, int(date))
-
-def index_integer_date_to_bytes(index:int, value:int, date:int):
-    return struct.pack('<iiQ', index, value, int(date))
-
-def index_integer_now_relay_milliseconds_to_bytes(index: int, value: int, delay_in_milliseconds: int) -> bytes:
-    current_time_milliseconds = int(time.time() * 1000)
-    adjusted_time_milliseconds = current_time_milliseconds + delay_in_milliseconds + default_global_ntp_offset_in_milliseconds
-    return struct.pack('<iiQ', index, value, int(adjusted_time_milliseconds))
+    def  bytes_to_index_integer_date(bytes:bytes):
+        index, value, date = struct.unpack('<iiQ', bytes)
+        return index, value, date
 
 
-def text_shortcut_to_bytes(text:str):
-    try:
-        if text.startswith("i:"):
-            integer = int(text.split(":")[1])
-            return integer_to_bytes(integer)
-        elif text.startswith("ii:"):
-            index, integer = text.split(":")[1].split(",")
-            return index_integer_to_bytes(int(index), int(integer))
-        elif text.startswith("iid:"):
-            index, integer, delay = text.split(":")[1].split(",")
-            
-            return index_integer_now_relay_milliseconds_to_bytes(int(index), int(integer), int(delay))
-        else:
-            while "  " in text:
-                text = text.replace("  ", " ")
-            tokens : list = text.replace(",", " ").split(" ")
-            size = len(tokens)
-            if size == 1:
-                integer = int(text)
-                return integer_to_bytes(integer)
-            elif size == 2:
-                index = int(tokens[0])
-                integer = int(tokens[1])
-                return index_integer_to_bytes(index, integer)
-            elif size == 3:
-                index = int(tokens[0])
-                integer = int(tokens[1])
-                delay = int(tokens[2])
-                return index_integer_now_relay_milliseconds_to_bytes(index, integer, delay)
+
+    def integer_to_bytes(value:int):
+        return struct.pack('<i', value)
+
+    def index_integer_to_bytes(index:int, value:int):
+        return struct.pack('<ii', index, value)
+
+    def index_integer_date_to_bytes(index:int, value:int, date:int):
+        return struct.pack('<iiQ', index, value, int(date))
+
+    def index_integer_date_to_bytes(index:int, value:int, date:int):
+        return struct.pack('<iiQ', index, value, int(date))
+
+    def index_integer_now_relay_milliseconds_to_bytes(index: int, value: int, delay_in_milliseconds: int) -> bytes:
+        current_time_milliseconds = int(time.time() * 1000)
+        adjusted_time_milliseconds = current_time_milliseconds + delay_in_milliseconds + default_global_ntp_offset_in_milliseconds
+        return struct.pack('<iiQ', index, value, int(adjusted_time_milliseconds))
+
+
+    def text_shortcut_to_bytes(text:str):
+        try:
+            if text.startswith("i:"):
+                integer = int(text.split(":")[1])
+                return IIDUtility.integer_to_bytes(integer)
+            elif text.startswith("ii:"):
+                index, integer = text.split(":")[1].split(",")
+                return IIDUtility.index_integer_to_bytes(int(index), int(integer))
+            elif text.startswith("iid:"):
+                index, integer, delay = text.split(":")[1].split(",")
+                
+                return IIDUtility.index_integer_now_relay_milliseconds_to_bytes(int(index), int(integer), int(delay))
             else:
-                integer = int(text)
-                return integer_to_bytes(integer)
-    except Exception as e:
-        print("Error", e)    
-    return None
-        
-def get_random_integer(from_value:int, to_value:int):
-    return random.randint(from_value, to_value)
-def get_random_integer_100():
-    return get_random_integer(0, 100)
-def get_random_integer_int_max():
-    return get_random_integer(-2147483647, 2147483647)
+                while "  " in text:
+                    text = text.replace("  ", " ")
+                tokens : list = text.replace(",", " ").split(" ")
+                size = len(tokens)
+                if size == 1:
+                    integer = int(text)
+                    return IIDUtility.integer_to_bytes(integer)
+                elif size == 2:
+                    index = int(tokens[0])
+                    integer = int(tokens[1])
+                    return IIDUtility.index_integer_to_bytes(index, integer)
+                elif size == 3:
+                    index = int(tokens[0])
+                    integer = int(tokens[1])
+                    delay = int(tokens[2])
+                    return IIDUtility.index_integer_now_relay_milliseconds_to_bytes(index, integer, delay)
+                else:
+                    integer = int(text)
+                    return IIDUtility.integer_to_bytes(integer)
+        except Exception as e:
+            print("Error", e)    
+        return None
+            
+    def get_random_integer(from_value:int, to_value:int):
+        return random.randint(from_value, to_value)
+    def get_random_integer_100():
+        return IIDUtility.get_random_integer(0, 100)
+    def get_random_integer_int_max():
+        return IIDUtility.get_random_integer(-2147483647, 2147483647)
 
-def get_random_integer_int_max_positive():
-    return get_random_integer(0, 2147483647)
-        
-def i(integer_value:int):
-    return integer_to_bytes(integer_value)
+    def get_random_integer_int_max_positive():
+        return IIDUtility.get_random_integer(0, 2147483647)
+            
+    def i(integer_value:int):
+        return IIDUtility.integer_to_bytes(integer_value)
 
-def ii(index:int, integer_value:int):
-    return index_integer_to_bytes(index, integer_value)
+    def ii(index:int, integer_value:int):
+        return IIDUtility.index_integer_to_bytes(index, integer_value)
 
-def iid(index:int, integer_value:int, date:int):
-    return index_integer_date_to_bytes(index, integer_value, date)
+    def iid(index:int, integer_value:int, date:int):
+        return IIDUtility.index_integer_date_to_bytes(index, integer_value, date)
 
-def iid_ms(index:int, integer_value:int, milliseconds:int):
-    return index_integer_date_to_bytes(index, integer_value, milliseconds)
-   
-   
-   
-def is_text_ivp4(server_name:str):
-    # check if the string is in 255.255.255.255 format
-    pattern = re.compile(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$")
-    return bool(pattern.match(server_name))
-
-def get_ipv4(server_name:str):
-    if is_text_ivp4(server_name):
-        return server_name
-    ivp4 = socket.gethostbyname(server_name)
-    return ivp4
+    def iid_ms(index:int, integer_value:int, milliseconds:int):
+        return IIDUtility.index_integer_date_to_bytes(index, integer_value, milliseconds)
+    
+    
 
 
 
@@ -138,7 +140,7 @@ class NtpOffsetFetcher:
             return 0
 
 
-def set_global_ntp_offset_in_milliseconds(ntp_server=default_ntp_server):
+def set_global_ntp_offset_in_milliseconds(ntp_server=IIDUtility.default_ntp_server):
 
     try:
         offset=  NtpOffsetFetcher.fetch_ntp_offset_in_milliseconds(ntp_server)
@@ -150,13 +152,18 @@ def set_global_ntp_offset_in_milliseconds(ntp_server=default_ntp_server):
         default_global_ntp_offset_in_milliseconds = 0
 set_global_ntp_offset_in_milliseconds()
     
+
 ## UDP IID
 ### SEND UDP IID
 class SendUdpIID:
     
+    
+  
+
+    
     def __init__(self, ivp4, port, use_ntp:bool, use_queue_thread:bool=False):
         
-        self.ivp4 = get_ipv4(ivp4)
+        self.ivp4 = IIDUtility.get_ipv4(ivp4)
         self.port = port
         self.ntp_offset_local_to_server_in_milliseconds=0
         
@@ -178,7 +185,7 @@ class SendUdpIID:
         return self.ntp_offset_local_to_server_in_milliseconds
         
     def push_integer_as_shorcut(self, text:str):
-        bytes = text_shortcut_to_bytes(text)
+        bytes = IIDUtility. text_shortcut_to_bytes(text)
         if bytes:
             self.sock.sendto(bytes, (self.ivp4, self.port))
     def push_bytes(self, bytes:bytes):
@@ -190,13 +197,13 @@ class SendUdpIID:
         self.push_bytes(text.encode('utf-8'))
         
     def push_integer(self, value:int):
-        self.push_bytes(integer_to_bytes(value))
+        self.push_bytes(IIDUtility. integer_to_bytes(value))
         
     def push_index_integer(self, index:int, value:int):
-        self.push_bytes(index_integer_to_bytes(index, value))
+        self.push_bytes(IIDUtility. index_integer_to_bytes(index, value))
         
     def push_index_integer_date(self, index:int, value:int, date:int):
-        self.push_bytes(index_integer_date_to_bytes(index, value, date))
+        self.push_bytes(IIDUtility.index_integer_date_to_bytes(index, value, date))
         
     def push_random_integer(self, index:int, from_value:int, to_value:int):
         value = random.randint(from_value, to_value)
@@ -236,11 +243,14 @@ class SendUdpIID:
         return self.queue_thread is not None
     
     def push_integer_in_queue(self, value:int, delay_in_milliseconds:int):
-        self.queue_thread.push_bytes_to_queue(integer_to_bytes(value), delay_in_milliseconds)
+        self.queue_thread.push_bytes_to_queue(IIDUtility.integer_to_bytes(value), delay_in_milliseconds)
     def push_index_integer_in_queue(self, index:int, value:int, delay_in_milliseconds:int):
-        self.queue_thread.push_bytes_to_queue(index_integer_to_bytes(index, value), delay_in_milliseconds)
+        self.queue_thread.push_bytes_to_queue(IIDUtility.index_integer_to_bytes(index, value), delay_in_milliseconds)
     def clear_queue(self):
         self.queue_thread.clear_queue()
+     
+
+
     
     
 
@@ -250,7 +260,7 @@ class SendUdpIID:
 ### RECEIVE UDP IID
 class ListenUdpIID:
     def __init__(self, ivp4, port):
-        self.ivp4 = get_ipv4(ivp4)
+        self.ivp4 = IIDUtility.get_ipv4(ivp4)
         self.port = port
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.bind((self.ivp4, self.port))
@@ -270,19 +280,19 @@ class ListenUdpIID:
                     continue
                 size = len(data)
                 if size == 4:
-                    value = bytes_to_int(data)
+                    value = IIDUtility.bytes_to_int(data)
                     if self.on_receive_integer:
                         self.on_receive_integer(value)
                 elif size == 8:
-                    index, value = bytes_to_index_integer(data)
+                    index, value = IIDUtility.bytes_to_index_integer(data)
                     if self.on_receive_index_integer:
                         self.on_receive_index_integer(index, value)
                 elif size == 12:
-                    index, value, date = bytes_to_index_integer_date(data)
+                    index, value, date = IIDUtility.bytes_to_index_integer_date(data)
                     if self.on_receive_index_integer_date:
                         self.on_receive_index_integer_date(index, value, date)
                 elif size == 16:
-                    index, value, date = bytes_to_index_integer_date(data)
+                    index, value, date = IIDUtility.bytes_to_index_integer_date(data)
                     if self.on_receive_index_integer_date:
                         self.on_receive_index_integer_date(index, value, date)
             except Exception as e:
@@ -299,7 +309,7 @@ class ListenUdpIID:
 class NoAuthWebsocketIID:
     
     def __init__(self, ivp4, port):
-        self.ivp4 = get_ipv4(ivp4)
+        self.ivp4 = IIDUtility.get_ipv4(ivp4)
         self.port = port
         self.uri = f"ws://{self.ivp4}:{self.port}"
         self.on_receive_integer = None
@@ -317,19 +327,19 @@ class NoAuthWebsocketIID:
             data = message.encode('latin1')
             size = len(data)
             if size == 4:
-                value = bytes_to_int(data)
+                value = IIDUtility.bytes_to_int(data)
                 if self.on_receive_integer:
                     self.on_receive_integer(value)
             elif size == 8:
-                index, value = bytes_to_index_integer(data)
+                index, value = IIDUtility.bytes_to_index_integer(data)
                 if self.on_receive_index_integer:
                     self.on_receive_index_integer(index, value)
             elif size == 12:
-                index, value, date = bytes_to_index_integer_date(data)
+                index, value, date = IIDUtility.bytes_to_index_integer_date(data)
                 if self.on_receive_index_integer_date:
                     self.on_receive_index_integer_date(index, value, date)
             elif size == 16:
-                index, value, date = bytes_to_index_integer_date(data)
+                index, value, date = IIDUtility.bytes_to_index_integer_date(data)
                 if self.on_receive_index_integer_date:
                     self.on_receive_index_integer_date(index, value, date)
             
@@ -338,7 +348,7 @@ class NoAuthWebsocketIID:
 # NOT TESTED YET
 class NoAuthServerWebSocketEchoIID:
     def __init__(self, ivp4:str, port:int, bool_print_debug:bool):
-        self.ivp4 = get_ipv4(ivp4)
+        self.ivp4 = IIDUtility.get_ipv4(ivp4)
         self.port = port
         self.bool_print_debug = bool_print_debug
         self.uri = f"ws://{self.ivp4}:{str(self.port)}"
@@ -528,11 +538,13 @@ class IntegerTimeQueueHolder:
     class BytesActionDelegate:
         def __init__(self, byte_handler):
             self.byte_handler = byte_handler
+            
         def out_of_queue(self, bytes_to_push:bytes):
             print ("Bytes Out Of Queue: ", bytes_to_push)
             self.byte_handler(bytes_to_push)
             
     def __init__(self, handle_action:BytesActionDelegate, check_time_in_milliseconds:int):
+        
         self.in_queue_bytes = IntegerTimeQueueHolder.QueueOfShortcuts()
         self.current_time:int = IntegerTimeQueueHolder.get_time_in_milliseconds()
         self.handle_action:IntegerTimeQueueHolder.BytesActionDelegate = handle_action
